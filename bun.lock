@@ -13,6 +13,7 @@
         "mammoth": "^1.9.0",
         "nuxt": "^4.4.2",
         "nuxt-auth-utils": "^0.5.0",
+        "pdfjs-serverless": "^1.2.3",
         "pinia": "^3.0.4",
         "unpdf": "^1.1.0",
         "vue": "^3.5.32",
@@ -1285,6 +1286,8 @@
     "path-to-regexp": ["path-to-regexp@6.3.0", "", {}, "sha512-Yhpw4T9C6hPpgPeA28us07OJeqZ5EzQTkbfwuhsUg0c237RomFoETJgmp2sa3F/41gfLE6G5cqcYwznmeEeOlQ=="],
 
     "pathe": ["pathe@2.0.3", "", {}, "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w=="],
+
+    "pdfjs-serverless": ["pdfjs-serverless@1.2.3", "", {}, "sha512-5jweSI9/2h9le2RSsm4jAOfSYqnWgs11eBZTntkIWUUmMhkWhb01/qgxxNpmx/jZNl5BnoaiwJSOCdNhLOaxSQ=="],
 
     "perfect-debounce": ["perfect-debounce@2.1.0", "", {}, "sha512-LjgdTytVFXeUgtHZr9WYViYSM/g8MkcTPYDlPa3cDqMirHjKiSZPYd6DoL7pK8AJQr+uWkQvCjHNdiMqsrJs+g=="],
 

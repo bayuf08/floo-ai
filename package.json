@@ -27,6 +27,7 @@
     "mammoth": "^1.9.0",
     "nuxt": "^4.4.2",
     "nuxt-auth-utils": "^0.5.0",
+    "pdfjs-serverless": "^1.2.3",
     "pinia": "^3.0.4",
     "unpdf": "^1.1.0",
     "vue": "^3.5.32",

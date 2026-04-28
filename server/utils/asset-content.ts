@@ -85,9 +85,26 @@ export async function extractAssetText(
   }
 }
 
+// unpdf's bundled `unpdf/pdfjs` ships a minified PDF.js that fails to parse
+// on modern Node ("Missing } in template expression") — see unpdf 1.6.0.
+// Point unpdf at the standalone `pdfjs-serverless` package (same author,
+// same edge-friendly build) once per process so extractPdf() can call the
+// regular unpdf API without hitting that broken bundle.
+let pdfjsConfigured: Promise<void> | null = null
+function ensurePdfJsConfigured(): Promise<void> {
+  if (!pdfjsConfigured) {
+    pdfjsConfigured = (async () => {
+      const { definePDFJSModule } = await import('unpdf')
+      await definePDFJSModule(() => import('pdfjs-serverless'))
+    })()
+  }
+  return pdfjsConfigured
+}
+
 async function extractPdf(buffer: Uint8Array): Promise<string> {
   // Dynamic import keeps cold-start fast and avoids loading PDF.js when it
   // isn't needed. unpdf is edge-compatible (no native bindings).
+  await ensurePdfJsConfigured()
   const { extractText, getDocumentProxy } = await import('unpdf')
   const pdf = await getDocumentProxy(buffer)
   const { text } = await extractText(pdf, { mergePages: true })
