@@ -1,0 +1,237 @@
+// Floo·Content — Database Schema
+// Source of truth for the entire database design.
+// Render as ER diagram at https://dbdiagram.io
+//
+// Conventions
+//  - Every table has UUID primary key (gen_random_uuid by default)
+//  - Every mutable table has updated_at TIMESTAMPTZ default now()
+//  - All foreign keys cascade-delete unless noted
+//  - All tables have RLS enabled — see 20240101000001_rls_policies.sql
+
+Project floo_content {
+  database_type: 'PostgreSQL'
+  Note: 'AI-powered social media content management. Workspace-scoped projects with chat history, brand knowledge files, and skill catalog.'
+}
+
+// ─────────────────────────────────────────────────────────────
+// 1. profiles — extends auth.users with display fields
+//    Created by trigger on every Google OAuth sign-in
+// ─────────────────────────────────────────────────────────────
+Table profiles {
+  id uuid [pk, ref: > auth_users.id, note: 'FK to Supabase auth.users — also the row PK']
+  name text [not null]
+  email text [unique, not null]
+  role text [default: 'member']
+  avatar_url text [null, note: 'Google profile photo URL on first sign-in; CDN URL after manual upload']
+  initials text [null, note: 'Derived from name for avatar fallback']
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+// Mock reference — Supabase manages this table; do not migrate it.
+Table auth_users {
+  id uuid [pk]
+  email text
+  Note: 'Managed by Supabase Auth. Do not include in migrations.'
+}
+
+// ─────────────────────────────────────────────────────────────
+// 2. workspaces — top-level org unit; owns projects
+// ─────────────────────────────────────────────────────────────
+Table workspaces {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null]
+  type text [default: 'general', note: 'social | campaign | email | general']
+  color text [default: '#5B479D']
+  description text [null]
+  default_platform text [default: 'tiktok']
+  owner_id uuid [not null, ref: > profiles.id]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table workspace_members {
+  id uuid [pk, default: `gen_random_uuid()`]
+  workspace_id uuid [not null, ref: > workspaces.id]
+  user_id uuid [not null, ref: > profiles.id]
+  role text [not null, default: 'editor', note: 'owner | editor | viewer']
+  joined_at timestamptz [default: `now()`]
+
+  indexes {
+    (workspace_id, user_id) [unique]
+    user_id
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3. projects — chat-first content surfaces inside a workspace
+// ─────────────────────────────────────────────────────────────
+Table projects {
+  id uuid [pk, default: `gen_random_uuid()`]
+  workspace_id uuid [not null, ref: > workspaces.id]
+  name text [not null]
+  platform text [not null, default: 'tiktok', note: 'tiktok | instagram | twitter | youtube | linkedin | threads']
+  color text [default: '#4B70B6']
+  is_pinned boolean [default: false]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    workspace_id
+  }
+}
+
+// 1:1 with projects — split out so context updates don't bump project.updated_at
+Table project_contexts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  project_id uuid [unique, not null, ref: > projects.id]
+  brand_voice text [default: '']
+  do_guidelines "text[]" [default: `'{}'`]
+  dont_guidelines "text[]" [default: `'{}'`]
+  hashtags "text[]" [default: `'{}'`]
+  platform_handle text [null]
+  platform_bio text [null]
+  platform_followers integer [null]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table project_members {
+  id uuid [pk, default: `gen_random_uuid()`]
+  project_id uuid [not null, ref: > projects.id]
+  user_id uuid [not null, ref: > profiles.id]
+  role text [not null, default: 'editor', note: 'owner | editor | viewer']
+  joined_at timestamptz [default: `now()`]
+
+  indexes {
+    (project_id, user_id) [unique]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 4. brand_assets — file metadata; binaries live in Storage bucket `brand-assets`
+// ─────────────────────────────────────────────────────────────
+Table brand_assets {
+  id uuid [pk, default: `gen_random_uuid()`]
+  project_id uuid [not null, ref: > projects.id]
+  name text [not null]
+  size_bytes bigint [not null]
+  category text [not null, note: 'image | video | document | presentation | spreadsheet | other']
+  extension text [not null]
+  description text [default: '']
+  storage_path text [not null, note: 'brand-assets/{projectId}/{uuid}.{ext}']
+  preview_url text [null, note: 'Signed URL — image previews only']
+  uploaded_by uuid [null, ref: > profiles.id]
+  uploaded_at timestamptz [default: `now()`]
+
+  indexes {
+    project_id
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 5. skills — system catalog + workspace-custom skills
+// ─────────────────────────────────────────────────────────────
+Table skills {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null]
+  category text [not null, note: 'voice | format | trend | workflow']
+  description text [default: '']
+  instructions text [null]
+  examples text [null]
+  is_custom boolean [default: false]
+  created_by uuid [null, ref: > profiles.id]
+  workspace_id uuid [null, ref: > workspaces.id, note: 'NULL for system skills, set for custom skills']
+  created_at timestamptz [default: `now()`]
+}
+
+Table project_skills {
+  project_id uuid [ref: > projects.id]
+  skill_id uuid [ref: > skills.id]
+  active boolean [default: true]
+
+  indexes {
+    (project_id, skill_id) [pk]
+    project_id
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 6. chat — messages + structured output cards
+// ─────────────────────────────────────────────────────────────
+Table chat_messages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  project_id uuid [not null, ref: > projects.id]
+  role text [not null, note: 'user | assistant']
+  content text [not null]
+  mode_label text [null, note: 'Image concept | Caption | Hooks | …']
+  metadata jsonb [default: `'{}'::jsonb`, note: 'Attachment storage paths, token usage, etc.']
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    project_id
+  }
+}
+
+Table output_cards {
+  id uuid [pk, default: `gen_random_uuid()`]
+  message_id uuid [not null, ref: > chat_messages.id]
+  label text [null]
+  sub text [null]
+  accent text [null]
+  can_copy boolean [default: true]
+  items "text[]" [not null, default: `'{}'`]
+}
+
+// ─────────────────────────────────────────────────────────────
+// 7. saved_outputs — user-bookmarked AI outputs at project scope
+// ─────────────────────────────────────────────────────────────
+Table saved_outputs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  project_id uuid [not null, ref: > projects.id]
+  label text [not null]
+  sub text [null]
+  accent text [null]
+  items "text[]" [not null, default: `'{}'`]
+  saved_by uuid [null, ref: > profiles.id]
+  saved_at timestamptz [default: `now()`]
+}
+
+// ─────────────────────────────────────────────────────────────
+// 8. rules_templates — preset Rules tab values (system + custom)
+// ─────────────────────────────────────────────────────────────
+Table rules_templates {
+  id uuid [pk, default: `gen_random_uuid()`]
+  workspace_id uuid [null, ref: > workspaces.id, note: 'NULL for system templates']
+  name text [not null]
+  voice_preview text [null]
+  brand_voice text [null]
+  do_guidelines "text[]" [default: `'{}'`]
+  dont_guidelines "text[]" [default: `'{}'`]
+  hashtags "text[]" [default: `'{}'`]
+  is_system boolean [default: false]
+  created_at timestamptz [default: `now()`]
+}
+
+// ─────────────────────────────────────────────────────────────
+// RLS POLICIES (annotated — defined in 20240101000001_rls_policies.sql)
+// ─────────────────────────────────────────────────────────────
+// profiles            : SELF read / update on own row; insert via trigger only
+// workspaces          : member can SELECT; owner can UPDATE/DELETE; auth user can INSERT
+// workspace_members   : workspace owner can INSERT/UPDATE/DELETE; members can SELECT
+// projects            : workspace member can SELECT; editor+ can INSERT/UPDATE/DELETE
+// project_contexts    : same as projects
+// project_members     : workspace owner OR project owner can INSERT/UPDATE/DELETE
+// brand_assets        : project member can SELECT/INSERT/DELETE; uploader/editor can UPDATE
+// skills              : SYSTEM rows readable by all; workspace custom rows by workspace members
+// project_skills      : project member can SELECT; editor+ can INSERT/UPDATE/DELETE
+// chat_messages       : project member can SELECT/INSERT
+// output_cards        : project member can SELECT (via message join)
+// saved_outputs       : project member can SELECT/INSERT/DELETE
+// rules_templates     : SYSTEM rows readable by all; workspace rows by workspace members
+
+// ─────────────────────────────────────────────────────────────
+// STORAGE BUCKETS (created via Supabase dashboard or storage.create_bucket)
+// ─────────────────────────────────────────────────────────────
+// brand-assets         private  50 MB  brand-assets/{projectId}/{uuid}.{ext}
+// avatars              public    5 MB  avatars/{userId}/{uuid}.{ext}
+// message-attachments  private  25 MB  message-attachments/{projectId}/{messageId}/{uuid}.{ext}

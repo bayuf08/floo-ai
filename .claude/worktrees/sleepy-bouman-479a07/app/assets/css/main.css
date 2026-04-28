@@ -1,0 +1,258 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────────
+ * Floothink Brand Tokens — semantic + theme-aware
+ * Light theme (default) + dark theme via [data-theme="dark"]
+ * Per-platform accent via [data-platform="instagram|tiktok|youtube|x"]
+ * ────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Floothink core palette (anchors — do not theme) */
+  --ft-purple: #5B479D;
+  --ft-purple-deep: #463579;
+  --ft-purple-deeper: #2F2356;
+  --ft-purple-soft: #8576B7;
+  --ft-purple-tint: #EFECF7;
+  --ft-purple-wash: #F7F5FB;
+
+  --ft-amber: #FBB040;
+  --ft-amber-deep: #B57418;
+  --ft-amber-soft: #FDD08A;
+  --ft-amber-tint: #FEF1DC;
+
+  --ft-blue: #4B70B6;
+  --ft-green: #4DAF4E;
+  --ft-yellow: #FBE225;
+  --ft-coral: #E8645A;
+  --ft-red: #E85D5D;
+
+  /* Light mode (default) */
+  --bg: #FAF8F5;
+  --bg-2: #F2EFEA;
+  --surface: #FFFFFF;
+  --surface-2: #FBFAF8;
+  --surface-elev: #FFFFFF;
+
+  --border: #E7E2DA;
+  --border-soft: #EFEBE3;
+  --border-strong: #D2CCC0;
+
+  --fg: #1B1726;
+  --fg-2: #4A4458;
+  --fg-3: #847D90;
+  --fg-inverse: #FFFFFF;
+
+  --brand: #5B479D;
+  --brand-fg: #FFFFFF;
+  --brand-tint: #EFECF7;
+  --brand-soft: #DDD6EF;
+
+  --cta: #FBB040;
+  --cta-fg: #1B1726;
+  --cta-tint: #FEF1DC;
+
+  /* Default platform accent (overridden by [data-platform=…]) */
+  --platform: #E8645A;          /* tiktok */
+  --platform-tint: #FBE6E3;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(27, 23, 38, 0.04);
+  --shadow-sm: 0 2px 6px rgba(27, 23, 38, 0.06), 0 1px 2px rgba(27, 23, 38, 0.04);
+  --shadow-md: 0 6px 18px rgba(27, 23, 38, 0.08), 0 2px 4px rgba(27, 23, 38, 0.04);
+  --shadow-lg: 0 12px 32px rgba(27, 23, 38, 0.12), 0 4px 10px rgba(27, 23, 38, 0.06);
+  --shadow-xl: 0 24px 56px rgba(27, 23, 38, 0.16), 0 8px 20px rgba(27, 23, 38, 0.08);
+
+  /* Type */
+  --font-display: 'Funnel Display', system-ui, sans-serif;
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-editorial: 'Besley', Georgia, serif;
+
+  /* Radii */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-2xl: 28px;
+  --r-pill: 9999px;
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-fast: 150ms var(--ease-out);
+  --transition-normal: 250ms var(--ease-out);
+
+  /* Layout */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 64px;
+  --right-panel-width: 340px;
+}
+
+/* ── Dark mode ── */
+[data-theme="dark"] {
+  --bg: #14111B;
+  --bg-2: #1B1726;
+  --surface: #1F1B2C;
+  --surface-2: #252135;
+  --surface-elev: #2A2540;
+
+  --border: #2F2A40;
+  --border-soft: #25213A;
+  --border-strong: #3B3550;
+
+  --fg: #F1ECF7;
+  --fg-2: #B7AECC;
+  --fg-3: #7C7493;
+  --fg-inverse: #14111B;
+
+  --brand: #8576B7;
+  --brand-fg: #FFFFFF;
+  --brand-tint: #2A2244;
+  --brand-soft: #3D2F75;
+
+  --cta: #FBB040;
+  --cta-fg: #1B1726;
+  --cta-tint: #3A2C12;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 24px 56px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Per-platform accents ── */
+[data-platform="instagram"] { --platform: #E1306C; --platform-tint: #FCE5EE; }
+[data-platform="tiktok"]    { --platform: #E8645A; --platform-tint: #FBE6E3; }
+[data-platform="youtube"]   { --platform: #C73B3B; --platform-tint: #FBE5E5; }
+[data-platform="x"]         { --platform: #4B70B6; --platform-tint: #E5ECF7; }
+[data-platform="twitter"]   { --platform: #4B70B6; --platform-tint: #E5ECF7; }
+[data-platform="linkedin"]  { --platform: #0A66C2; --platform-tint: #E1ECF7; }
+[data-platform="threads"]   { --platform: #1B1726; --platform-tint: #ECEAF1; }
+
+[data-theme="dark"][data-platform="instagram"] { --platform-tint: #3A1A2A; }
+[data-theme="dark"][data-platform="tiktok"]    { --platform-tint: #3A2120; }
+[data-theme="dark"][data-platform="youtube"]   { --platform-tint: #3A1F1F; }
+[data-theme="dark"][data-platform="x"]         { --platform-tint: #1F2A3F; }
+[data-theme="dark"][data-platform="twitter"]   { --platform-tint: #1F2A3F; }
+[data-theme="dark"][data-platform="linkedin"]  { --platform-tint: #14253B; }
+[data-theme="dark"][data-platform="threads"]   { --platform-tint: #2A2540; }
+
+/* ── Base ── */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1.5;
+  transition: background-color 200ms var(--ease-out), color 200ms var(--ease-out);
+}
+
+button { font-family: inherit; cursor: pointer; }
+input, textarea { font-family: inherit; }
+
+::selection { background: var(--brand); color: var(--brand-fg); }
+
+/* ── Typography utilities ── */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.font-editorial {
+  font-family: var(--font-editorial);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-style: normal; /* Never italicize Funnel Display */
+}
+
+/* ── Custom scrollbar ── */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-pill);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-3);
+}
+
+/* App-wide scrollbar (fallback for browsers ignoring class) */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--fg-3); }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Animations ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pulse-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40%           { opacity: 1;   transform: scale(1); }
+}
+
+@keyframes ftPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%      { opacity: 1;   transform: scale(1.1); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.3s var(--ease-out) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s var(--ease-out) forwards;
+}
+
+.thinking-dot {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Page transitions ── */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 150ms var(--ease-out);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}

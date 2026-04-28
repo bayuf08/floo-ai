@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "noEmit": true,
+    "strict": false,
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "types": [],
+    "allowJs": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "paths": { "~/*": ["./*"], "@/*": ["./*"] }
+  },
+  "include": ["server/**/*.ts"]
+}

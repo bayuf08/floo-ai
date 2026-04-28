@@ -1,0 +1,31 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+# - .env / .env.local etc are gitignored (real secrets).
+# - *.example templates are committed.
+# - .env.production.filled is the script-generated upload bundle and
+#   contains real secrets — never commit it.
+.env
+.env.*
+!.env*.example
+.env.production.filled
+.vercel
+.env*.local
