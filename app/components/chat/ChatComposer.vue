@@ -161,6 +161,7 @@
 
 <script setup lang="ts">
 import type { BrandAsset } from '~/types/project'
+import type { MentionRef } from '~/utils/mention-refs'
 
 const chatStore = useChatStore()
 const projectsStore = useProjectsStore()
@@ -179,6 +180,11 @@ const mentionOpen = ref(false)
 const mentionStart = ref(0)
 const mentionQuery = ref('')
 const mentionSelectedIndex = ref(0)
+
+// Tracks every file the user inserted via the @-popover. We reconcile
+// this against the textarea text on send (the user may have deleted
+// the @filename text by hand) to build the referencedAssetIds payload.
+const mentionRefs = ref<MentionRef[]>([])
 
 const mentionFiles = computed<BrandAsset[]>(() => {
   if (!mentionOpen.value) return []
@@ -411,6 +417,10 @@ function selectMention(file: BrandAsset) {
   )
   inputText.value = result.text
   mentionOpen.value = false
+  // Track this insertion so we can resolve filenames → asset ids on send.
+  // Reconciliation drops entries whose @filename was later deleted from
+  // the textarea, and de-duplicates by assetId.
+  mentionRefs.value.push({ assetId: file.id, filename: file.name })
   nextTick(() => {
     inputRef.value?.setSelectionRange(result.caret, result.caret)
     inputRef.value?.focus()
@@ -450,9 +460,17 @@ function send() {
   const fullText = attachments.value.length
     ? `${text}\n\n[Attached: ${attachments.value.map((a) => a.name).join(', ')}]`
     : text
-  chatStore.sendMessage(fullText, projectsStore.activeProjectId)
+  // Resolve picker-tracked refs against the (full) message text. Tags whose
+  // filename was deleted by hand drop out; duplicates collapse to one id.
+  const referencedAssetIds = reconcileMentionRefs(fullText, mentionRefs.value)
+  chatStore.sendMessage(
+    fullText,
+    projectsStore.activeProjectId,
+    referencedAssetIds.length > 0 ? referencedAssetIds : undefined,
+  )
   inputText.value = ''
   attachments.value = []
+  mentionRefs.value = []
   // Send-button click doesn't blur the textarea, so onBlur won't fire to
   // close the popover. Close it explicitly here for both keyboard and click
   // send paths.
