@@ -44,3 +44,51 @@ describe('detectMentionTrigger', () => {
     expect(detectMentionTrigger('@LK', 0)).toBeNull()
   })
 })
+
+import { replaceMentionTrigger } from './mention-parsing'
+
+describe('replaceMentionTrigger', () => {
+  test('replaces @LK at end of text with @filename + trailing space', () => {
+    // "hi @LK" — start=3, caret=6. Filename "LK-XL-25-Q1.pdf" (15 chars).
+    // Expected: "hi @LK-XL-25-Q1.pdf " (20 chars), caret at 20.
+    expect(replaceMentionTrigger('hi @LK', 3, 6, 'LK-XL-25-Q1.pdf')).toEqual({
+      text: 'hi @LK-XL-25-Q1.pdf ',
+      caret: 20,
+    })
+  })
+
+  test('next char is whitespace — omits trailing space, jumps caret past existing whitespace', () => {
+    // "hi @LK after" — start=3, caret=6. Filename "LK-XL-25-Q1.pdf" (15 chars).
+    // After is " after" → starts with whitespace, so insertion is "@LK-XL-25-Q1.pdf" (16 chars, no trailing space).
+    // Caret = start (3) + insertion length (16) + 1 (skip existing space) = 20.
+    expect(replaceMentionTrigger('hi @LK after', 3, 6, 'LK-XL-25-Q1.pdf')).toEqual({
+      text: 'hi @LK-XL-25-Q1.pdf after',
+      caret: 20,
+    })
+  })
+
+  test('trigger at index 0', () => {
+    expect(replaceMentionTrigger('@', 0, 1, 'LK.pdf')).toEqual({
+      text: '@LK.pdf ',
+      caret: 8,
+    })
+  })
+
+  test('trigger at index 0 with text after caret (non-whitespace)', () => {
+    expect(replaceMentionTrigger('@xyz', 0, 1, 'LK.pdf')).toEqual({
+      // before="" + "@LK.pdf " (8) + "xyz" → "@LK.pdf xyz", caret = 0 + 8 = 8
+      text: '@LK.pdf xyz',
+      caret: 8,
+    })
+  })
+
+  test('caret at end of partial query, suffix preserved', () => {
+    // "say @LK now" — start=4, caret=7. Filename "LK.pdf" (6 chars).
+    // After = " now" → whitespace → insertion = "@LK.pdf" (7 chars, no trailing space).
+    // Caret = 4 + 7 + 1 = 12.
+    expect(replaceMentionTrigger('say @LK now', 4, 7, 'LK.pdf')).toEqual({
+      text: 'say @LK.pdf now',
+      caret: 12,
+    })
+  })
+})

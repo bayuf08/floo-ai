@@ -23,3 +23,28 @@ export function detectMentionTrigger(text: string, caret: number): MentionTrigge
   }
   return null
 }
+
+export interface MentionReplacement {
+  text: string
+  caret: number
+}
+
+export function replaceMentionTrigger(
+  text: string,
+  start: number,
+  caret: number,
+  filename: string,
+): MentionReplacement {
+  const before = text.slice(0, start)
+  const after = text.slice(caret)
+  const nextCharIsWhitespace = after.length > 0 && /\s/.test(after[0]!)
+  // Add a trailing space when the suffix doesn't already start with whitespace.
+  // If it does, omit the trailing space and let the caret skip past the
+  // existing whitespace, so we don't end up with double-spacing.
+  const insertion = nextCharIsWhitespace ? `@${filename}` : `@${filename} `
+  const newText = before + insertion + after
+  const newCaret = nextCharIsWhitespace
+    ? start + insertion.length + 1
+    : start + insertion.length
+  return { text: newText, caret: newCaret }
+}
