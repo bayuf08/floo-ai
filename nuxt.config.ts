@@ -152,7 +152,7 @@ export default defineNuxtConfig({
     // alongside Vite, and when Nitro finishes it shuts down the shared esbuild
     // service mid-flight, killing Vite's pre-transform and hanging the page.
     // Override any environment with NITRO_PRESET (e.g. NITRO_PRESET=node-server).
-    preset: process.env.NITRO_PRESET ?? (process.env.NODE_ENV === 'production' ? 'vercel' : undefined),
+    preset: process.env.NITRO_PRESET ?? (process.env.NODE_ENV === 'production' ? 'vercel' : undefined), // ?? not || so NITRO_PRESET="" still means "not set"
     alias: {
       '~': fileURLToPath(new URL('.', import.meta.url)),
     },
@@ -160,7 +160,8 @@ export default defineNuxtConfig({
 
   // On Vercel, route image optimization through Vercel's image CDN instead
   // of Nitro's IPX runtime — IPX would consume serverless function time on
-  // every image request. Locally, IPX runs inside the dev server for free.
+  // every image request. Locally (dev server) and in self-hosted node-server
+  // builds, IPX runs in-process for free.
   image: {
     provider: process.env.NODE_ENV === 'production' && process.env.NITRO_PRESET !== 'node-server'
       ? 'vercel'
