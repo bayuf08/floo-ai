@@ -145,11 +145,14 @@ export default defineNuxtConfig({
   // making ~ resolve to app/ instead of the project root. Server files live
   // at <root>/server/, so we override ~ in Nitro to point to the root.
   nitro: {
-    // Pin the deploy target to Vercel by default so `nuxt build` produces
-    // .vercel/output/ both locally (for `vercel deploy --prebuilt`) and in
-    // CI. Override with `NITRO_PRESET=node-server npm run build` for a
-    // self-hosted node build.
-    preset: process.env.NITRO_PRESET || 'vercel',
+    // Pin the deploy target to Vercel for production builds so `nuxt build`
+    // produces .vercel/output/ (for `vercel deploy --prebuilt` and CI).
+    // In dev mode we leave the preset unset so Nitro uses its default dev
+    // server — forcing 'vercel' in dev causes Nitro's Vercel build to run
+    // alongside Vite, and when Nitro finishes it shuts down the shared esbuild
+    // service mid-flight, killing Vite's pre-transform and hanging the page.
+    // Override any environment with NITRO_PRESET (e.g. NITRO_PRESET=node-server).
+    preset: process.env.NITRO_PRESET ?? (process.env.NODE_ENV === 'production' ? 'vercel' : undefined),
     alias: {
       '~': fileURLToPath(new URL('.', import.meta.url)),
     },
@@ -157,9 +160,11 @@ export default defineNuxtConfig({
 
   // On Vercel, route image optimization through Vercel's image CDN instead
   // of Nitro's IPX runtime — IPX would consume serverless function time on
-  // every image request. Locally (NITRO_PRESET=node-server) IPX is fine.
+  // every image request. Locally, IPX runs inside the dev server for free.
   image: {
-    provider: process.env.NITRO_PRESET === 'node-server' ? 'ipx' : 'vercel',
+    provider: process.env.NODE_ENV === 'production' && process.env.NITRO_PRESET !== 'node-server'
+      ? 'vercel'
+      : 'ipx',
   },
 
   app: {
