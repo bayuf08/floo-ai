@@ -1,23 +1,23 @@
 <template>
-  <div :style="rootStyle" role="listbox" aria-label="Knowledge files">
-    <button
+  <div class="absolute z-50" :style="rootStyle" role="listbox" aria-label="Knowledge files">
+    <div
       v-for="(file, idx) in files"
       :key="file.id"
-      type="button"
       role="option"
       :aria-selected="idx === selectedIndex"
+      :title="file.name"
       @mousedown.prevent="emit('select', file)"
       @mouseenter="emit('hover', idx)"
       :style="itemStyle(idx)"
     >
       <span class="flex items-center justify-center" :style="iconBoxStyle">
-        <Icon name="lucide:file-text" class="w-3.5 h-3.5" />
+        <Icon name="lucide:file-text" class="w-3.5 h-3.5" aria-hidden="true" />
       </span>
       <span class="flex flex-col" :style="{ minWidth: 0, flex: 1, gap: '1px', textAlign: 'left' }">
         <span :style="nameStyle">{{ file.name }}</span>
         <span :style="metaStyle">{{ file.size }}</span>
       </span>
-    </button>
+    </div>
   </div>
 </template>
 
@@ -35,7 +35,6 @@ const emit = defineEmits<{
 }>()
 
 const rootStyle = {
-  position: 'absolute' as const,
   bottom: 'calc(100% + 6px)',
   left: 0,
   right: 0,
@@ -49,7 +48,6 @@ const rootStyle = {
   display: 'flex',
   flexDirection: 'column' as const,
   gap: '2px',
-  zIndex: 30,
 }
 
 function itemStyle(idx: number) {
@@ -63,7 +61,6 @@ function itemStyle(idx: number) {
     background: isSelected ? 'var(--brand-tint)' : 'transparent',
     color: 'var(--fg)',
     cursor: 'pointer',
-    border: 'none',
     width: '100%',
     transition: 'background 80ms var(--ease-out)',
   }
