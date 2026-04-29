@@ -39,6 +39,10 @@ import { retrieveRelevantChunks } from '~/server/utils/asset-retrieval'
 const Schema = z.object({
   content: z.string().min(1).max(10_000),
   mode: z.enum(['research', 'competitor', 'trend', 'copy', 'image', 'video']).optional(),
+  /** UUIDs of brand_assets the user explicitly @-tagged. When non-empty,
+   *  the AI's knowledge view is restricted to these assets only; tagless
+   *  requests get the default "all assets" behavior. */
+  referenced_asset_ids: z.array(z.string().uuid()).optional(),
   /** Optional per-request override. Today the UI never sends this (the
    *  picker was removed in favor of `GLM_MODEL` in .env). Kept loose
    *  so a stale client can't 400 on an ad-hoc id. */
@@ -134,6 +138,21 @@ export default defineEventHandler(async (event) => {
 
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
+  // Strict-scope @-mention — when the user @-tagged specific files,
+  // restrict the AI's knowledge view to those files. Falls back to all
+  // assets when none of the requested ids resolve (file deleted, RLS
+  // rejected, stale client) so the answer isn't context-stripped.
+  const requestedIds = parsed.data.referenced_asset_ids ?? []
+  const filteredAssets = requestedIds.length > 0
+    ? (assets ?? []).filter((a: any) => requestedIds.includes(a.id))
+    : (assets ?? [])
+  const effectiveAssets = (requestedIds.length > 0 && filteredAssets.length === 0)
+    ? (assets ?? [])
+    : filteredAssets
+  const ragScopeIds = (requestedIds.length > 0 && filteredAssets.length > 0)
+    ? requestedIds
+    : undefined
+
   // Selective RAG — see messages.post.ts for the full reasoning. Empty
   // array means the prompt-builder falls back to inlining extracted_text,
   // which is the legacy behaviour pre-RAG.
@@ -141,6 +160,7 @@ export default defineEventHandler(async (event) => {
     projectId,
     query: parsed.data.content,
     matchCount: 5,
+    assetIds: ragScopeIds,
   })
 
   const messages = buildChatPrompt({
@@ -151,7 +171,7 @@ export default defineEventHandler(async (event) => {
       .map((s: any) => s.skill)
       .filter(Boolean)
       .map((s: any) => ({ name: s.name, instructions: s.instructions })),
-    brandAssets: (assets ?? []).map((a: any) => ({
+    brandAssets: effectiveAssets.map((a: any) => ({
       name: a.name,
       description: a.description,
       category: a.category,
