@@ -27,7 +27,7 @@ const DEFAULT_MATCH_COUNT = 5
 
 export async function retrieveRelevantChunks(
   event: H3Event,
-  args: { projectId: string; query: string; matchCount?: number }
+  args: { projectId: string; query: string; matchCount?: number; assetIds?: string[] }
 ): Promise<SelectedChunk[]> {
   const matchCount = args.matchCount ?? DEFAULT_MATCH_COUNT
   const trimmedQuery = (args.query ?? '').trim()
@@ -68,11 +68,14 @@ export async function retrieveRelevantChunks(
     return []
   }
 
-  // RPC defined in 20260428000000_brand_asset_chunks.sql.
+  // RPC defined in 20260428000000_brand_asset_chunks.sql, with the
+  // optional p_asset_ids parameter added in 20260429100000.
+  const scopeIds = args.assetIds && args.assetIds.length > 0 ? args.assetIds : null
   const { data, error: rpcErr } = await admin.rpc('match_project_chunks', {
     query_embedding: queryEmbedding,
     p_project_id: args.projectId,
     match_count: matchCount,
+    p_asset_ids: scopeIds,
   })
 
   if (rpcErr) {
