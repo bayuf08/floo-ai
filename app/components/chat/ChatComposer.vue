@@ -207,6 +207,8 @@ watch(
   () => chatStore.composerDraft,
   (draft) => {
     if (!draft) return
+    // Drop any in-flight @-trigger — the injected draft owns the textarea now.
+    mentionOpen.value = false
     inputText.value = draft
     chatStore.composerDraft = ''
     nextTick(() => {
@@ -374,10 +376,16 @@ function onInput() {
   if (!ta) return
   const trigger = detectMentionTrigger(inputText.value, ta.selectionStart ?? 0)
   if (trigger) {
+    // Reset the highlight only on a new trigger context (different @-position
+    // or popover transitioning from closed to open). Keystrokes that refine
+    // the same trigger preserve the user's current selection — the watch on
+    // mentionFiles still snaps the index back to 0 if the list shrinks below
+    // the current selection.
+    const isNewTrigger = !mentionOpen.value || trigger.start !== mentionStart.value
     mentionOpen.value = true
     mentionStart.value = trigger.start
     mentionQuery.value = trigger.query
-    mentionSelectedIndex.value = 0
+    if (isNewTrigger) mentionSelectedIndex.value = 0
   } else {
     mentionOpen.value = false
   }
@@ -445,6 +453,10 @@ function send() {
   chatStore.sendMessage(fullText, projectsStore.activeProjectId)
   inputText.value = ''
   attachments.value = []
+  // Send-button click doesn't blur the textarea, so onBlur won't fire to
+  // close the popover. Close it explicitly here for both keyboard and click
+  // send paths.
+  mentionOpen.value = false
   nextTick(() => {
     if (inputRef.value) inputRef.value.style.height = 'auto'
   })
