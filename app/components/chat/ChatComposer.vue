@@ -32,14 +32,21 @@
       </div>
 
       <!-- Input box -->
-      <div :style="inputBoxStyle">
+      <div :style="[inputBoxStyle, { position: 'relative' }]">
+        <MentionPopover
+          v-if="mentionOpen && mentionFiles.length > 0"
+          :files="mentionFiles"
+          :selected-index="mentionSelectedIndex"
+          @select="selectMention"
+          @hover="(idx: number) => (mentionSelectedIndex = idx)"
+        />
         <textarea
           ref="inputRef"
           v-model="inputText"
           @keydown="onKeydown"
-          @input="autoResize"
+          @input="onInput"
           @focus="focused = true"
-          @blur="focused = false"
+          @blur="onBlur"
           placeholder="Ask Floo for a concept, copy, or research — drop files for context"
           :rows="2"
           :style="textareaStyle"
@@ -153,6 +160,8 @@
 </template>
 
 <script setup lang="ts">
+import type { BrandAsset } from '~/types/project'
+
 const chatStore = useChatStore()
 const projectsStore = useProjectsStore()
 const inputText = ref('')
@@ -161,6 +170,34 @@ const fileInput = ref<HTMLInputElement>()
 const focused = ref(false)
 const attachments = ref<{ name: string; size: string }[]>([])
 const skillsOpen = ref(false)
+
+// Mention popover state. The popover opens whenever the textarea content
+// has a valid @-trigger between the caret and the most recent whitespace
+// (or start of text). The composer owns the selected index because the
+// textarea retains focus while the popover is rendered.
+const mentionOpen = ref(false)
+const mentionStart = ref(0)
+const mentionQuery = ref('')
+const mentionSelectedIndex = ref(0)
+
+const mentionFiles = computed<BrandAsset[]>(() => {
+  if (!mentionOpen.value) return []
+  const all = projectsStore.activeProject?.contextRules?.brandAssets ?? []
+  if (!mentionQuery.value) return all
+  const q = mentionQuery.value.toLowerCase()
+  return all.filter((a) => a.name.toLowerCase().includes(q))
+})
+
+// If the filter narrows to zero, close the popover instead of showing an
+// empty list. If the index falls off the end after filtering, snap back to 0.
+watch(mentionFiles, (files) => {
+  if (!mentionOpen.value) return
+  if (files.length === 0) {
+    mentionOpen.value = false
+  } else if (mentionSelectedIndex.value >= files.length) {
+    mentionSelectedIndex.value = 0
+  }
+})
 
 // Bridge from outside surfaces (e.g. ChatThread's empty-state suggestion
 // chips). When `chatStore.composerDraft` is set non-empty, copy it into our
@@ -292,6 +329,34 @@ function hoverSend(enter: boolean, e: MouseEvent) {
 }
 
 function onKeydown(e: KeyboardEvent) {
+  // Mention popover takes priority over send / newline.
+  if (mentionOpen.value && mentionFiles.value.length > 0) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      mentionSelectedIndex.value =
+        (mentionSelectedIndex.value + 1) % mentionFiles.value.length
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      mentionSelectedIndex.value =
+        (mentionSelectedIndex.value - 1 + mentionFiles.value.length) %
+        mentionFiles.value.length
+      return
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      const file = mentionFiles.value[mentionSelectedIndex.value]
+      if (file) selectMention(file)
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      mentionOpen.value = false
+      return
+    }
+  }
+
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
     e.preventDefault()
     send()
@@ -301,6 +366,48 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault()
     send()
   }
+}
+
+function onInput() {
+  autoResize()
+  const ta = inputRef.value
+  if (!ta) return
+  const trigger = detectMentionTrigger(inputText.value, ta.selectionStart ?? 0)
+  if (trigger) {
+    mentionOpen.value = true
+    mentionStart.value = trigger.start
+    mentionQuery.value = trigger.query
+    mentionSelectedIndex.value = 0
+  } else {
+    mentionOpen.value = false
+  }
+}
+
+function onBlur() {
+  focused.value = false
+  // Close the popover on blur. The popover items use @mousedown.prevent so
+  // clicking an option fires `select` BEFORE blur, not after — meaning a
+  // click selection still works.
+  mentionOpen.value = false
+}
+
+function selectMention(file: BrandAsset) {
+  const ta = inputRef.value
+  if (!ta) return
+  const caret = ta.selectionStart ?? inputText.value.length
+  const result = replaceMentionTrigger(
+    inputText.value,
+    mentionStart.value,
+    caret,
+    file.name,
+  )
+  inputText.value = result.text
+  mentionOpen.value = false
+  nextTick(() => {
+    inputRef.value?.setSelectionRange(result.caret, result.caret)
+    inputRef.value?.focus()
+    autoResize()
+  })
 }
 
 function autoResize() {
