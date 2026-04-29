@@ -60,4 +60,15 @@ describe('reconcileMentionRefs', () => {
       ]),
     ).toEqual(['id-c', 'id-a', 'id-b'])
   })
+
+  test('short filename is prefix of longer filename — only the matched entry is returned', () => {
+    // @brief.doc is a substring of @brief.docx, but the boundary check
+    // (next char `x` is a filename-continuation char) rejects the false match.
+    expect(
+      reconcileMentionRefs('see @brief.docx', [
+        { assetId: 'doc-id', filename: 'brief.doc' },
+        { assetId: 'docx-id', filename: 'brief.docx' },
+      ]),
+    ).toEqual(['docx-id'])
+  })
 })
