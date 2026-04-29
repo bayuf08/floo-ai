@@ -48,9 +48,7 @@ defineEmits<{
 }>()
 
 const categories: { value: SkillCategory; label: string; icon: string }[] = [
-  { value: 'voice', label: 'Voice', icon: 'heroicons:speaker-wave' },
-  { value: 'format', label: 'Format', icon: 'heroicons:rectangle-stack' },
-  { value: 'trend', label: 'Trend', icon: 'heroicons:fire' },
-  { value: 'workflow', label: 'Workflow', icon: 'heroicons:bolt' },
+  { value: 'marketing', label: 'Marketing', icon: 'heroicons:megaphone' },
+  { value: 'creator', label: 'Creator', icon: 'heroicons:sparkles' },
 ]
 </script>

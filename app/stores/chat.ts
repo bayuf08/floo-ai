@@ -1,22 +1,24 @@
 import { defineStore } from 'pinia'
 import type { ChatMessage, ContentMode, OutputCard, Citation } from '~/types/chat'
 import { AVAILABLE_CONTENT_MODES, CONTENT_MODES } from '~/types/chat'
-
-const LS_KEY_MODE = 'floo:chat:selectedMode'
+import {
+  CHAT_MODE_LS_KEY,
+  decodePersistedMode,
+  encodeModeForStorage,
+} from '~/utils/chat-mode-persistence'
 
 /**
- * Read a value from localStorage and validate it against an allow-list.
- * Returns the fallback if the value is missing, doesn't parse, or isn't allowed.
- * Client-only — guard at the call site.
+ * Read the persisted task-intent choice from localStorage. Returns either
+ * a valid ContentMode or undefined (fresh browser OR explicit "no intent").
+ * Client-only — guard at the call site. The codec lives in
+ * `utils/chat-mode-persistence.ts` so it's directly testable.
  */
-function readValidated(key: string, allowed: readonly string[], fallback: string): string {
+function readPersistedMode(allowed: readonly ContentMode[]): ContentMode | undefined {
   try {
-    const raw = localStorage.getItem(key)
-    if (!raw) return fallback
-    return allowed.includes(raw) ? raw : fallback
+    return decodePersistedMode(localStorage.getItem(CHAT_MODE_LS_KEY), allowed)
   } catch {
     // Some browsers / privacy modes throw on localStorage access. Treat as miss.
-    return fallback
+    return undefined
   }
 }
 
@@ -37,15 +39,18 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref<ChatMessage[]>([])
 
   const isThinking = ref(false)
-  /** Default to 'research' — only research + copy ship today, others are 'Coming soon'. */
-  const selectedMode = ref<ContentMode>(
+  /**
+   * Task intent is OPTIONAL. When undefined, the AI answers freely without
+   * any mode-specific instructions injected — only the base Floo persona +
+   * project context apply. Set via `setMode()`; cleared via `clearMode()`.
+   *
+   * Default for fresh browsers is undefined (no intent). Returning users
+   * resume their last explicit choice (including "none" if they cleared).
+   */
+  const selectedMode = ref<ContentMode | undefined>(
     import.meta.client
-      ? (readValidated(
-          LS_KEY_MODE,
-          AVAILABLE_CONTENT_MODES.map((m) => m.value),
-          'research'
-        ) as ContentMode)
-      : 'research'
+      ? readPersistedMode(AVAILABLE_CONTENT_MODES.map((m) => m.value) as ContentMode[])
+      : undefined,
   )
   // The GLM model is no longer user-selectable from the UI — the server
   // reads `GLM_MODEL` from `.env` (via `runtimeConfig.glmModel`) and uses
@@ -319,9 +324,25 @@ export const useChatStore = defineStore('chat', () => {
     )
     if (opt?.comingSoon) return
     selectedMode.value = mode
-    if (import.meta.client) {
-      try { localStorage.setItem(LS_KEY_MODE, mode) } catch { /* ignore */ }
-    }
+    persistMode(mode)
+  }
+
+  /**
+   * Explicit "no task intent" — the AI will answer freely without any
+   * mode-specific instructions. Persists the choice via the
+   * CHAT_MODE_LS_NONE sentinel so a reload doesn't snap back to the
+   * previously-set mode.
+   */
+  function clearMode() {
+    selectedMode.value = undefined
+    persistMode(undefined)
+  }
+
+  function persistMode(mode: ContentMode | undefined) {
+    if (!import.meta.client) return
+    try {
+      localStorage.setItem(CHAT_MODE_LS_KEY, encodeModeForStorage(mode))
+    } catch { /* ignore */ }
   }
 
   // setModel removed alongside the model switcher — see the comment near
@@ -560,7 +581,8 @@ export const useChatStore = defineStore('chat', () => {
     savedOutputsRefreshKey.value += 1
   }
 
-  function modeToLabel(mode: ContentMode): string {
+  function modeToLabel(mode: ContentMode | undefined): string | undefined {
+    if (!mode) return undefined
     const map: Record<ContentMode, string> = {
       research: 'Research',
       competitor: 'Competitor research',
@@ -583,6 +605,7 @@ export const useChatStore = defineStore('chat', () => {
     loadHistory,
     sendMessage,
     setMode,
+    clearMode,
     requestMore,
     saveCard,
     bumpSavedOutputsRefresh,

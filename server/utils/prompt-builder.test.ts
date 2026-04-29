@@ -128,8 +128,11 @@ describe('buildChatPrompt — project context', () => {
     expect(sys).toContain('Name: Kayu — SS26')
     expect(sys).toContain('Platform: instagram')
     expect(sys).toContain('Handle: @kayustudio')
-    expect(sys).toContain('Followers: 12300')
-    expect(sys).toContain('Bio: Bantul-made ceramics.')
+    // Followers are formatted with locale separators + a follower-band annotation.
+    expect(sys).toContain('Followers: 12,300')
+    expect(sys).toContain('mid-tier creator')
+    // Bio is wrapped in quotes per buildPlatformProfileBlock.
+    expect(sys).toContain('Bio: "Bantul-made ceramics."')
   })
 
   test('omits brand-voice / DO / DONT / hashtag sub-sections when empty', () => {
@@ -161,7 +164,7 @@ describe('buildChatPrompt — project context', () => {
 })
 
 describe('buildChatPrompt — skills', () => {
-  test('renders active skills with name + instructions', () => {
+  test('renders active skills with name + instructions as H3 sections', () => {
     const out = buildChatPrompt(
       args({
         skills: [
@@ -172,9 +175,64 @@ describe('buildChatPrompt — skills', () => {
     )
     const sys = systemText(out)
     expect(sys).toContain('## Active skills')
-    expect(sys).toContain('**Hook Generator**')
+    // Each skill renders as its own H3 subsection so long-form bodies stay readable.
+    expect(sys).toContain('### Hook Generator')
     expect(sys).toContain('Lead with the strongest single line.')
-    expect(sys).toContain('**Tone Mirror**')
+    expect(sys).toContain('### Tone Mirror')
+  })
+
+  test('renders skill description as italic line under the heading', () => {
+    const out = buildChatPrompt(
+      args({
+        skills: [
+          {
+            name: 'Brand Review',
+            description: 'Audit a draft against brand voice.',
+            instructions: 'Body of the skill.',
+          },
+        ],
+      })
+    )
+    const sys = systemText(out)
+    expect(sys).toContain('### Brand Review')
+    expect(sys).toContain('_Audit a draft against brand voice._')
+    expect(sys).toContain('Body of the skill.')
+  })
+
+  test('renders examples as a labelled bullet list', () => {
+    const out = buildChatPrompt(
+      args({
+        skills: [
+          {
+            name: 'Draft Content',
+            instructions: 'Write copy in the brand voice.',
+            examples: [
+              "User asks for 5 hooks → numbered list of 5 standalone lines.",
+              'User asks for blog → headline candidates + outline + meta description.',
+            ],
+          },
+        ],
+      })
+    )
+    const sys = systemText(out)
+    expect(sys).toContain('**Examples:**')
+    expect(sys).toContain('numbered list of 5 standalone lines')
+    expect(sys).toContain('headline candidates + outline + meta description')
+  })
+
+  test('skips empty examples gracefully', () => {
+    const out = buildChatPrompt(
+      args({
+        skills: [
+          {
+            name: 'Quiet Skill',
+            instructions: 'Body.',
+            examples: ['', '   ', null as unknown as string],
+          },
+        ],
+      })
+    )
+    expect(systemText(out)).not.toContain('**Examples:**')
   })
 
   test('omits the Active skills block entirely when no skills are passed', () => {
@@ -198,7 +256,8 @@ describe('buildChatPrompt — brand knowledge', () => {
       })
     )
     const sys = systemText(out)
-    expect(sys).toContain('## Brand knowledge files')
+    // Heading pluralizes: singular "file" when count === 1, plural otherwise.
+    expect(sys).toContain('## Brand knowledge file (1)')
     expect(sys).toContain('Tone_of_Voice.docx')
     expect(sys).toContain('How we sound.')
     expect(sys).toContain('Always lowercase')

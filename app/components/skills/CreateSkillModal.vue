@@ -109,8 +109,9 @@ const open = computed({
 const skillsStore = useSkillsStore()
 const saving = ref(false)
 
-const categories: { value: SkillCategory; label: string }[] = (['voice', 'format', 'trend', 'workflow'] as SkillCategory[])
-  .map((c) => ({ value: c, label: CATEGORY_LABELS[c] }))
+const categories: { value: SkillCategory; label: string }[] = (
+  ['marketing', 'creator'] as SkillCategory[]
+).map((c) => ({ value: c, label: CATEGORY_LABELS[c] }))
 
 const form = reactive({
   name: '',

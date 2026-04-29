@@ -4,33 +4,6 @@
     :style="{ padding: '12px 28px 22px', background: 'linear-gradient(to top, var(--bg) 60%, transparent)' }"
   >
     <div :style="{ maxWidth: '820px', margin: '0 auto' }">
-      <!-- Brief chips -->
-      <div v-if="attachments.length" class="flex flex-wrap" :style="{ gap: '8px', marginBottom: '10px' }">
-        <span
-          v-for="(file, idx) in attachments"
-          :key="idx"
-          class="inline-flex items-center"
-          :style="briefChipStyle"
-        >
-          <span class="flex items-center justify-center" :style="briefIcoStyle">
-            <Icon name="lucide:file-text" class="w-3.5 h-3.5" />
-          </span>
-          <span class="flex flex-col" :style="{ minWidth: 0, flex: 1, gap: '1px' }">
-            <span :style="briefNameStyle">{{ file.name }}</span>
-            <span :style="briefSizeStyle">{{ file.size }}</span>
-          </span>
-          <button
-            type="button"
-            :aria-label="`Remove ${file.name}`"
-            @click="removeAttachment(idx)"
-            class="flex"
-            :style="{ color: 'var(--fg-3)' }"
-          >
-            <Icon name="lucide:x" class="w-3 h-3" />
-          </button>
-        </span>
-      </div>
-
       <!-- Input box -->
       <div :style="[inputBoxStyle, { position: 'relative' }]">
         <MentionPopover
@@ -60,44 +33,27 @@
                server-side `GLM_MODEL` env var. Users don't need a
                per-message override. -->
 
-          <button
-            type="button"
-            @click="fileInput?.click()"
-            class="inline-flex items-center"
-            :style="ctrlBtnStyle"
-            @mouseenter="hoverCtrl($event, true)"
-            @mouseleave="hoverCtrl($event, false)"
-          >
-            <Icon name="lucide:paperclip" class="w-3.5 h-3.5" />
-            <span>Attach brief</span>
-          </button>
-          <input
-            ref="fileInput"
-            type="file"
-            multiple
-            class="hidden"
-            @change="onFiles"
-          />
-
-          <!-- Knowledge chip — visible when persistent brand assets exist -->
-          <span
-            v-if="brandAssetCount > 0"
-            class="inline-flex items-center"
-            :title="`${brandAssetCount} brand ${brandAssetCount === 1 ? 'asset is' : 'assets are'} active on this project`"
-            :style="{
-              gap: '5px',
-              padding: '4px 8px',
-              borderRadius: 'var(--r-sm)',
-              background: 'var(--brand-tint)',
-              color: 'var(--brand)',
-              fontSize: '11.5px',
-              fontWeight: 600,
-              border: '1px solid color-mix(in srgb, var(--brand) 18%, transparent)',
-            }"
-          >
-            <Icon name="lucide:library" class="w-3 h-3" />
-            <span>{{ brandAssetCount }}</span>
-          </span>
+          <div class="relative">
+            <button
+              type="button"
+              class="inline-flex items-center"
+              :aria-expanded="knowledgeOpen"
+              aria-label="Browse knowledge base"
+              @click="knowledgeOpen = !knowledgeOpen"
+              :style="ctrlBtnStyle"
+              @mouseenter="hoverCtrl($event, true)"
+              @mouseleave="hoverCtrl($event, false)"
+            >
+              <Icon name="lucide:library" class="w-3.5 h-3.5" />
+              <span>Knowledge{{ brandAssetCount > 0 ? ` · ${brandAssetCount}` : '' }}</span>
+            </button>
+            <ComposerKnowledgePopover
+              v-if="knowledgeOpen && projectsStore.activeProjectId"
+              :project-id="projectsStore.activeProjectId"
+              @select="onKnowledgeSelect"
+              @close="knowledgeOpen = false"
+            />
+          </div>
 
           <div class="relative">
             <button
@@ -167,10 +123,9 @@ const chatStore = useChatStore()
 const projectsStore = useProjectsStore()
 const inputText = ref('')
 const inputRef = ref<HTMLTextAreaElement>()
-const fileInput = ref<HTMLInputElement>()
 const focused = ref(false)
-const attachments = ref<{ name: string; size: string }[]>([])
 const skillsOpen = ref(false)
+const knowledgeOpen = ref(false)
 
 // Mention popover state. The popover opens whenever the textarea content
 // has a valid @-trigger between the caret and the most recent whitespace
@@ -292,38 +247,6 @@ const sendBtnStyle = computed(() => ({
   transition: 'transform 120ms var(--ease-out), box-shadow 200ms var(--ease-out)',
 }))
 
-const briefChipStyle = {
-  gap: '8px',
-  padding: '6px 8px 6px 10px',
-  background: 'var(--brand-tint)',
-  border: '1px solid color-mix(in srgb, var(--brand) 18%, transparent)',
-  borderRadius: 'var(--r-md)',
-  fontSize: '12px',
-  color: 'var(--fg)',
-  fontWeight: 500,
-  maxWidth: '240px',
-}
-
-const briefIcoStyle = {
-  width: '24px',
-  height: '24px',
-  borderRadius: '5px',
-  background: 'var(--surface)',
-  color: 'var(--brand)',
-  flexShrink: 0,
-}
-
-const briefNameStyle = {
-  whiteSpace: 'nowrap' as const,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-}
-
-const briefSizeStyle = {
-  fontSize: '10.5px',
-  color: 'var(--fg-3)',
-  fontWeight: 500,
-}
 
 function hoverCtrl(e: MouseEvent, enter: boolean) {
   ;(e.currentTarget as HTMLElement).style.background = enter ? 'var(--bg-2)' : 'transparent'
@@ -435,41 +358,23 @@ function autoResize() {
   ta.style.height = Math.min(ta.scrollHeight, 200) + 'px'
 }
 
-function onFiles(e: Event) {
-  const target = e.target as HTMLInputElement
-  if (!target.files) return
-  for (const f of Array.from(target.files)) {
-    attachments.value.push({ name: f.name, size: formatBytes(f.size) })
-  }
-  target.value = ''
-}
-
-function removeAttachment(idx: number) {
-  attachments.value.splice(idx, 1)
-}
-
-function formatBytes(b: number): string {
-  if (b < 1024) return `${b} B`
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} KB`
-  return `${(b / 1024 / 1024).toFixed(1)} MB`
+function onKnowledgeSelect(asset: BrandAsset) {
+  selectMention(asset)
+  knowledgeOpen.value = false
 }
 
 function send() {
   const text = inputText.value.trim()
   if (!text || !projectsStore.activeProjectId) return
-  const fullText = attachments.value.length
-    ? `${text}\n\n[Attached: ${attachments.value.map((a) => a.name).join(', ')}]`
-    : text
-  // Resolve picker-tracked refs against the (full) message text. Tags whose
+  // Resolve picker-tracked refs against the message text. Tags whose
   // filename was deleted by hand drop out; duplicates collapse to one id.
-  const referencedAssetIds = reconcileMentionRefs(fullText, mentionRefs.value)
+  const referencedAssetIds = reconcileMentionRefs(text, mentionRefs.value)
   chatStore.sendMessage(
-    fullText,
+    text,
     projectsStore.activeProjectId,
     referencedAssetIds.length > 0 ? referencedAssetIds : undefined,
   )
   inputText.value = ''
-  attachments.value = []
   mentionRefs.value = []
   // Send-button click doesn't blur the textarea, so onBlur won't fire to
   // close the popover. Close it explicitly here for both keyboard and click

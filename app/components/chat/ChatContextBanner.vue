@@ -42,9 +42,9 @@
   >
     <Icon name="lucide:alert-triangle" class="w-3.5 h-3.5" :style="{ color: 'var(--ft-amber, #d97706)' }" />
     <span :style="{ fontWeight: 600, color: 'var(--fg)' }">No project context set</span>
-    <span :style="{ color: 'var(--fg-2)' }">— Floo is working without brand rules.</span>
+    <span :style="{ color: 'var(--fg-2)' }">— add brand knowledge so Floo has something to work from.</span>
     <span :style="{ marginLeft: 'auto', color: 'var(--brand)', fontWeight: 600 }">
-      Set up rules
+      Add knowledge
       <Icon name="lucide:arrow-right" class="w-3 h-3" style="display: inline-block; vertical-align: middle; margin-left: 2px;" />
     </span>
   </button>
@@ -129,7 +129,9 @@ const hasAnyContext = computed(() => chips.value.length > 0)
 const summaryAria = computed(() => chips.value.map((c) => c.label).join(', '))
 
 function openRulesTab() {
-  uiStore.activeContextTab = 'rules'
+  // Rules is "coming soon" — route the empty-context CTA to Knowledge,
+  // which is the only context surface users can populate today.
+  uiStore.activeContextTab = 'knowledge'
   uiStore.rightPanelOpen = true
 }
 

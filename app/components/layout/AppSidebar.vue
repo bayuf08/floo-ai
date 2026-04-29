@@ -26,15 +26,6 @@
       >
         F<span :style="{ color: 'var(--brand)' }">·</span>
       </div>
-      <button
-        type="button"
-        :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-        @click="$emit('toggle')"
-        class="flex"
-        :style="{ color: 'var(--fg-3)' }"
-      >
-        <Icon name="lucide:panel-left" class="w-4 h-4" />
-      </button>
     </div>
 
     <!-- Workspace pill (with switcher dropdown) -->

@@ -73,10 +73,8 @@ defineEmits<{
 
 const categoryClass = computed(() => {
   const map: Record<SkillCategory, string> = {
-    voice: 'bg-floo-brand-tint text-floo-brand',
-    format: 'bg-amber-50 text-amber-700',
-    trend: 'bg-red-50 text-red-700',
-    workflow: 'bg-green-50 text-green-700',
+    marketing: 'bg-blue-50 text-blue-700',
+    creator: 'bg-purple-50 text-purple-700',
   }
   return map[props.skill.category]
 })

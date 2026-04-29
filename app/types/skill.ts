@@ -1,4 +1,4 @@
-export type SkillCategory = 'voice' | 'format' | 'trend' | 'workflow'
+export type SkillCategory = 'marketing' | 'creator'
 export type SkillCategoryFilter = SkillCategory | 'all'
 
 export interface SkillDefinition {
@@ -13,19 +13,15 @@ export interface SkillDefinition {
 }
 
 export const CATEGORY_LABELS: Record<SkillCategory, string> = {
-  voice: 'Voice',
-  format: 'Format',
-  trend: 'Trend',
-  workflow: 'Workflow',
+  marketing: 'Marketing',
+  creator: 'Creator',
 }
 
 export const CATEGORY_DESCRIPTIONS: Record<SkillCategory, string> = {
-  voice: 'How Floo sounds — tone, register, sentence length.',
-  format: 'How Floo structures output — hooks, carousels, threads.',
-  trend: 'How Floo references the moment — audio, visuals, culture.',
-  workflow: 'How Floo helps you do the job — briefs, hashtags, timing.',
+  marketing: 'How Floo runs a campaign — briefs, audits, sequences, reports.',
+  creator: 'How Floo helps you author your own custom skills.',
 }
 
 export function resolveSkillFormCategory(category?: SkillCategoryFilter | null): SkillCategory {
-  return category && category !== 'all' ? category : 'voice'
+  return category && category !== 'all' ? category : 'marketing'
 }

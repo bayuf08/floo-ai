@@ -43,11 +43,27 @@
         type="button"
         @click="setTab(t.value)"
         class="inline-flex items-center"
+        :title="isComingSoonTab(t.value) ? 'Coming soon' : undefined"
         :style="tabStyle(t.value)"
       >
         <span>{{ t.label }}</span>
         <span
-          v-if="t.value === 'knowledge' && assetCount > 0"
+          v-if="isComingSoonTab(t.value)"
+          :style="{
+            marginLeft: '6px',
+            padding: '1px 6px',
+            fontSize: '9px',
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+            textTransform: 'uppercase',
+            borderRadius: 'var(--r-pill)',
+            background: 'var(--bg-2)',
+            color: 'var(--fg-3)',
+            lineHeight: 1.4,
+          }"
+        >Soon</span>
+        <span
+          v-else-if="t.value === 'knowledge' && assetCount > 0"
           :style="{
             marginLeft: '6px',
             padding: '1px 6px',
@@ -66,6 +82,36 @@
     <div class="flex-1 overflow-y-auto custom-scrollbar" :style="{ padding: '18px 18px 24px' }">
       <!-- Rules tab -->
       <template v-if="tab === 'rules'">
+        <!-- Coming-soon placeholder — Rules editing is temporarily off
+             while we ship the redesigned rules engine. Renders in place
+             of all the brand-voice / DO / DON'T / hashtag editors so
+             users still see the tab but understand why it's empty. -->
+        <div :style="rulesEmptyStateStyle">
+          <div :style="{ fontSize: '24px', lineHeight: 1, marginBottom: '8px' }">📋</div>
+          <div
+            class="font-display"
+            :style="{ fontWeight: 700, fontSize: '15px', color: 'var(--fg)', marginBottom: '6px' }"
+          >Rules — coming soon</div>
+          <p
+            :style="{
+              fontFamily: 'var(--font-editorial)',
+              fontSize: '12.5px',
+              color: 'var(--fg-2)',
+              lineHeight: 1.5,
+              marginBottom: '4px',
+              maxWidth: '260px',
+            }"
+          >
+            We're rebuilding Rules so Floo can sound exactly like your brand.
+            Until it ships, lean on Skills and Knowledge to steer outputs.
+          </p>
+        </div>
+      </template>
+
+      <!-- Rules tab — original implementation, hidden while the
+           "coming soon" placeholder above is shown. Re-enable by
+           swapping the v-if/template guard back when Rules ships. -->
+      <template v-if="false">
         <!-- Empty state — shown when ALL four rule fields are blank.
              Replaces the four placeholder cards with a single guided
              prompt so users see one clear next step instead of four
@@ -419,7 +465,16 @@ const userStore = useUserStore()
 const ui = useUiStore()
 
 type Tab = 'rules' | 'skills' | 'platform' | 'knowledge' | 'saved'
-const tab = ref<Tab>('rules')
+/**
+ * Tabs that are visible in the panel but not yet shipped. Rendered with
+ * a "Soon" badge and a coming-soon placeholder body. Clicking still
+ * activates the tab so users can read the message — Rules used to be
+ * the default tab, so we also fall back to Skills as the new default
+ * (see initial value of `tab` below) and skip these in any auto-routing
+ * triggered via `ui.activeContextTab`.
+ */
+const COMING_SOON_TABS: ReadonlySet<Tab> = new Set(['rules'])
+const tab = ref<Tab>('skills')
 const tabs: { value: Tab; label: string }[] = [
   { value: 'rules', label: 'Rules' },
   { value: 'skills', label: 'Skills' },
@@ -428,6 +483,10 @@ const tabs: { value: Tab; label: string }[] = [
   { value: 'knowledge', label: 'Knowledge' },
   { value: 'saved', label: 'Saved' },
 ]
+
+function isComingSoonTab(value: Tab): boolean {
+  return COMING_SOON_TABS.has(value)
+}
 
 const project = computed(() => projectsStore.activeProject)
 const ctx = computed(() => project.value?.contextRules)
@@ -585,6 +644,7 @@ const ruleLabelStyle = {
 
 function tabStyle(value: Tab) {
   const active = tab.value === value
+  const soon = isComingSoonTab(value)
   return {
     padding: '12px 14px',
     fontSize: '12.5px',
@@ -595,6 +655,7 @@ function tabStyle(value: Tab) {
     background: 'transparent',
     flexShrink: 0,
     whiteSpace: 'nowrap' as const,
+    opacity: soon && !active ? 0.7 : 1,
   }
 }
 

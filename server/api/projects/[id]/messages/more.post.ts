@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
         .maybeSingle(),
       supabase
         .from('project_skills')
-        .select('active, skill:skills(name, instructions)')
+        .select('active, skill:skills(name, description, instructions, examples)')
         .eq('project_id', projectId)
         .eq('active', true),
       supabase

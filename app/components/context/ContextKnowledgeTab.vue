@@ -53,15 +53,33 @@
           v-for="c in categoryFilters"
           :key="c.value"
           type="button"
-          @click="activeCategory = c.value"
+          @click="onChipClick(c.value)"
           :aria-pressed="activeCategory === c.value"
+          :disabled="isComingSoon(c.value)"
+          :title="isComingSoon(c.value) ? 'Coming soon' : undefined"
           :style="chipStyle(c.value)"
           @mouseenter="hoverChip($event, c.value, true)"
           @mouseleave="hoverChip($event, c.value, false)"
         >
           {{ c.label }}
           <span
-            v-if="c.value !== 'all'"
+            v-if="isComingSoon(c.value)"
+            :style="{
+              marginLeft: '4px',
+              padding: '1px 5px',
+              fontSize: '9px',
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase',
+              borderRadius: 'var(--r-pill)',
+              background: 'var(--bg-2)',
+              color: 'var(--fg-3)',
+            }"
+          >
+            Soon
+          </span>
+          <span
+            v-else-if="c.value !== 'all'"
             :style="{
               marginLeft: '4px',
               fontSize: '10px',
@@ -146,7 +164,14 @@ const projectsStore = useProjectsStore()
 const uploaderRef = ref<{ openPicker: () => void } | null>(null)
 
 const searchQuery = ref('')
-type CategoryFilter = AssetCategory | 'all'
+/**
+ * Filter chip values. We collapsed the old per-type chips (`document`,
+ * `presentation`, `spreadsheet`) into a single `docs` bucket because the
+ * UI only ships three top-level categories: Docs, Images, Videos.
+ * `docs` is therefore not an `AssetCategory` — it's a UI-only group that
+ * matches multiple stored categories.
+ */
+type CategoryFilter = 'all' | 'image' | 'video' | 'docs'
 const activeCategory = ref<CategoryFilter>('all')
 
 const assets = computed(() => {
@@ -154,24 +179,42 @@ const assets = computed(() => {
   return project?.contextRules?.brandAssets ?? []
 })
 
+/**
+ * Categories currently in beta / not yet uploadable. Surface them as
+ * disabled chips with a "Soon" badge so users see the roadmap without
+ * being able to filter into an empty list.
+ */
+const COMING_SOON_CATEGORIES: ReadonlySet<CategoryFilter> = new Set(['video'])
+
 const categoryFilters: { value: CategoryFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'image', label: 'Images' },
+  { value: 'docs', label: 'Docs' },
   { value: 'video', label: 'Videos' },
-  { value: 'document', label: 'Docs' },
-  { value: 'presentation', label: 'Decks' },
-  { value: 'spreadsheet', label: 'Sheets' },
 ]
+
+/** Map a UI filter to the underlying stored AssetCategory values. */
+function matchesFilter(assetCategory: AssetCategory, filter: CategoryFilter): boolean {
+  if (filter === 'all') return true
+  if (filter === 'docs') {
+    return (
+      assetCategory === 'document'
+      || assetCategory === 'presentation'
+      || assetCategory === 'spreadsheet'
+    )
+  }
+  return assetCategory === filter
+}
 
 function countByCategory(c: CategoryFilter): number {
   if (c === 'all') return assets.value.length
-  return assets.value.filter((a) => a.category === c).length
+  return assets.value.filter((a) => matchesFilter(a.category, c)).length
 }
 
 const filteredAssets = computed(() => {
   let list = assets.value
   if (activeCategory.value !== 'all') {
-    list = list.filter((a) => a.category === activeCategory.value)
+    list = list.filter((a) => matchesFilter(a.category, activeCategory.value))
   }
   const q = searchQuery.value.trim().toLowerCase()
   if (q) {
@@ -187,8 +230,18 @@ function clearFilters() {
   activeCategory.value = 'all'
 }
 
+function isComingSoon(value: CategoryFilter): boolean {
+  return COMING_SOON_CATEGORIES.has(value)
+}
+
+function onChipClick(value: CategoryFilter) {
+  if (isComingSoon(value)) return
+  activeCategory.value = value
+}
+
 function chipStyle(value: CategoryFilter) {
   const active = value === activeCategory.value
+  const soon = isComingSoon(value)
   return {
     padding: '4px 10px',
     fontSize: '11.5px',
@@ -197,12 +250,14 @@ function chipStyle(value: CategoryFilter) {
     border: `1px solid ${active ? 'var(--brand)' : 'var(--border)'}`,
     background: active ? 'var(--brand-tint)' : 'var(--surface)',
     color: active ? 'var(--brand)' : 'var(--fg-2)',
+    opacity: soon ? 0.55 : 1,
     transition: 'background 120ms var(--ease-out), border-color 120ms var(--ease-out)',
-    cursor: 'pointer',
+    cursor: soon ? 'not-allowed' : 'pointer',
   }
 }
 
 function hoverChip(e: MouseEvent, value: CategoryFilter, enter: boolean) {
+  if (isComingSoon(value)) return
   if (value === activeCategory.value) return
   ;(e.currentTarget as HTMLElement).style.background = enter ? 'var(--bg-2)' : 'var(--surface)'
 }
@@ -210,19 +265,34 @@ function hoverChip(e: MouseEvent, value: CategoryFilter, enter: boolean) {
 /**
  * Pending-extraction poller.
  *
- * When any asset on this project is in `pending` state, refetch the asset
- * list every 5 seconds. Stops as soon as the pending set drains (Floo's
- * extractor flips rows to `done` or `error` synchronously on each fetch).
+ * When any asset on this project is in `pending` state AND the row is
+ * younger than MAX_PENDING_AGE_SECONDS, refetch the asset list every 5
+ * seconds. Stops as soon as the pending set drains (the extractor flips
+ * rows to `done`/`skipped`/`error` synchronously inside the upload
+ * request) OR every pending row has aged past the cutoff — at which
+ * point the row is presumed stuck (extractor crashed mid-flight, etc.)
+ * and the asset card itself surfaces a retryable "stalled" pill instead
+ * of the indefinite spinner.
  *
- * We use a watcher rather than a permanent setInterval so the poller is
- * naturally bounded — it lives only while the Knowledge tab is mounted
- * AND there's something pending.
+ * The age cutoff exists because, without it, a single permanently-stuck
+ * row would keep the loop polling forever — burning a network request
+ * every 5 s for the lifetime of the open tab.
+ *
+ * Mirror this constant in ContextAssetCard.vue when changing it; the
+ * card's "stalled" UI uses the same threshold so the user sees the
+ * stuck state at the moment the parent stops polling.
  */
 const POLL_INTERVAL_MS = 5_000
+const MAX_PENDING_AGE_SECONDS = 60
 
-const hasPending = computed(() =>
-  assets.value.some((a) => a.extractionStatus === 'pending')
-)
+const hasPending = computed(() => {
+  const cutoffMs = Date.now() - MAX_PENDING_AGE_SECONDS * 1000
+  return assets.value.some(
+    (a) =>
+      a.extractionStatus === 'pending'
+      && new Date(a.uploadedAt).getTime() > cutoffMs
+  )
+})
 
 let pollHandle: ReturnType<typeof setInterval> | null = null
 

@@ -226,6 +226,59 @@ const descInput = ref<HTMLInputElement | null>(null)
 const uploadedRelative = computed(() => `${format(props.asset.uploadedAt)} ago`)
 
 /**
+ * Stuck-pending detection.
+ *
+ * If an asset has been sitting in `extraction_status = 'pending'` for
+ * longer than this threshold, the extractor very likely crashed mid-run
+ * (or the row was inserted before the upload route's extraction call
+ * was wired up). Surface it as a retryable error rather than an
+ * indefinite spinner — see ContextKnowledgeTab.vue for the matching
+ * poll-stop cutoff.
+ *
+ * `nowMs` ticks every 10 s while the asset is pending, so a freshly-
+ * stuck row transitions to the "stalled" pill without needing a parent
+ * re-fetch (the parent's poller stops once everything pending has aged
+ * past the cutoff, so we can't rely on it for late re-renders).
+ */
+const STALLED_AFTER_MS = 60_000
+const nowMs = ref(Date.now())
+let pendingTickHandle: ReturnType<typeof setInterval> | null = null
+
+function startPendingTick() {
+  if (pendingTickHandle) return
+  pendingTickHandle = setInterval(() => {
+    nowMs.value = Date.now()
+  }, 10_000)
+}
+
+function stopPendingTick() {
+  if (!pendingTickHandle) return
+  clearInterval(pendingTickHandle)
+  pendingTickHandle = null
+}
+
+watch(
+  () => props.asset.extractionStatus,
+  (status) => {
+    if (status === 'pending') {
+      nowMs.value = Date.now()
+      startPendingTick()
+    } else {
+      stopPendingTick()
+    }
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(stopPendingTick)
+
+const isStalledPending = computed(
+  () =>
+    props.asset.extractionStatus === 'pending'
+    && nowMs.value - new Date(props.asset.uploadedAt).getTime() > STALLED_AFTER_MS
+)
+
+/**
  * Surface the backend extraction pipeline so the user knows whether Floo can
  * actually read the file's content. We surface all four states (pending,
  * done, error, skipped) — knowing "Ready" is on file is reassuring, and the
@@ -237,6 +290,21 @@ const uploadedRelative = computed(() => `${format(props.asset.uploadedAt)} ago`)
 const extractionPill = computed(() => {
   const status = props.asset.extractionStatus
   if (status === 'pending') {
+    // After STALLED_AFTER_MS the row is presumed stuck — flip the pill to
+    // the same red error styling so the user sees a Retry button rather
+    // than a forever-spinning loader. The DB row is still 'pending'; the
+    // retry handler calls /extract.post.ts which reruns extractAndPersist
+    // and writes the correct terminal status.
+    if (isStalledPending.value) {
+      return {
+        label: 'Extraction stalled',
+        icon: 'lucide:alert-triangle',
+        spin: false,
+        title:
+          "Floo started reading this file but never finished. Click Retry to try again, or re-upload.",
+        style: pillStyle('var(--ft-red)', 'color-mix(in srgb, var(--ft-red) 12%, transparent)'),
+      }
+    }
     return {
       label: 'Extracting text…',
       icon: 'lucide:loader-2',
@@ -279,10 +347,18 @@ const extractionPill = computed(() => {
   return null
 })
 
-/** Retry button only shows on errored, persisted (non-temp) assets. */
+/**
+ * Retry button shows on errored *or* stuck-pending persisted assets.
+ * Stalled-pending rows weren't always retryable in the original UI —
+ * the upload-side extraction gate is now removed (see assets.post.ts),
+ * but rows uploaded before the fix shipped need a manual retry path
+ * to leave the 'pending' state if the backfill migration didn't catch
+ * them. /extract.post.ts also no longer short-circuits on non-extractable
+ * extensions, so retrying a stuck PNG correctly persists 'skipped'.
+ */
 const canRetry = computed(
   () =>
-    props.asset.extractionStatus === 'error' &&
+    (props.asset.extractionStatus === 'error' || isStalledPending.value) &&
     !props.asset.id.startsWith('asset-') &&
     !props.projectId.startsWith('proj-pending-') &&
     !projectsStore.usingMocks

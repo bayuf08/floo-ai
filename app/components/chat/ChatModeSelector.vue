@@ -8,16 +8,18 @@
         gap: '7px',
         padding: '6px 10px 6px 8px',
         borderRadius: 'var(--r-sm)',
-        background: 'var(--brand-tint)',
-        color: 'var(--fg)',
-        fontWeight: 600,
+        background: active ? 'var(--brand-tint)' : 'var(--bg-2)',
+        color: active ? 'var(--fg)' : 'var(--fg-2)',
+        fontWeight: active ? 600 : 500,
         fontSize: '12.5px',
-        border: '1px solid color-mix(in srgb, var(--brand) 18%, transparent)',
+        border: active
+          ? '1px solid color-mix(in srgb, var(--brand) 18%, transparent)'
+          : '1px solid var(--border-soft)',
         transition: 'background 120ms var(--ease-out)',
       }"
     >
-      <Icon :name="active.icon" class="w-3.5 h-3.5" />
-      <span>{{ active.label }}</span>
+      <Icon :name="active ? active.icon : 'lucide:sparkles'" class="w-3.5 h-3.5" />
+      <span>{{ active ? active.label : 'Task intent' }}</span>
       <Icon name="lucide:chevron-down" class="w-3 h-3" />
     </button>
 
@@ -47,6 +49,58 @@
       >
         Task intent
       </div>
+
+      <!-- "No intent" — explicit clear. Always sits at the top so users can
+           quickly drop back to free-form without scanning the list. -->
+      <button
+        type="button"
+        @click="selectNone"
+        class="w-full flex items-start gap-2.5 text-left"
+        :style="noneOptStyle"
+        @mouseenter="hoverNone($event, true)"
+        @mouseleave="hoverNone($event, false)"
+      >
+        <span
+          class="flex items-center justify-center flex-shrink-0"
+          :style="{
+            width: '22px', height: '22px', borderRadius: '5px',
+            background: 'var(--bg-2)',
+            color: 'var(--fg-3)',
+            marginTop: '1px',
+          }"
+        >
+          <Icon name="lucide:minus" class="w-3.5 h-3.5" />
+        </span>
+        <span class="flex-1 min-w-0">
+          <span class="block">No intent</span>
+          <span
+            class="block"
+            :style="{
+              fontSize: '11.5px',
+              fontWeight: 400,
+              color: 'var(--fg-3)',
+              lineHeight: 1.35,
+              marginTop: '1px',
+            }"
+          >Answer freely — no mode-specific format applied</span>
+        </span>
+        <span
+          v-if="chatStore.selectedMode === undefined"
+          :style="{ color: 'var(--brand)', marginTop: '2px' }"
+        >
+          <Icon name="lucide:check" class="w-3.5 h-3.5" />
+        </span>
+      </button>
+
+      <!-- Hairline separator between "No intent" and the mode list -->
+      <div
+        :style="{
+          height: '1px',
+          background: 'var(--border-soft)',
+          margin: '4px 8px',
+        }"
+      />
+
       <button
         v-for="opt in CONTENT_MODES"
         :key="opt.value"
@@ -113,22 +167,32 @@
 </template>
 
 <script setup lang="ts">
-import { CONTENT_MODES, AVAILABLE_CONTENT_MODES, type ContentMode } from '~/types/chat'
+import { CONTENT_MODES, type ContentMode } from '~/types/chat'
 
 const chatStore = useChatStore()
 const open = ref(false)
 const rootRef = ref<HTMLElement>()
 
-// Default to the first available mode if the persisted selection is one of the
-// 'coming soon' modes (e.g. legacy state from before this feature shipped).
+/**
+ * The currently-selected mode option, or null when the user is in the
+ * "No intent" state. Falls through to null if the persisted value is a
+ * 'coming soon' mode (legacy state from before those rolled out) — the
+ * chip then renders the neutral "Task intent" placeholder.
+ */
 const active = computed(() => {
+  if (!chatStore.selectedMode) return null
   const found = CONTENT_MODES.find((m) => m.value === chatStore.selectedMode)
   if (found && !found.comingSoon) return found
-  return AVAILABLE_CONTENT_MODES[0]!
+  return null
 })
 
 function select(v: ContentMode) {
   chatStore.setMode(v)
+  open.value = false
+}
+
+function selectNone() {
+  chatStore.clearMode()
   open.value = false
 }
 
@@ -146,9 +210,27 @@ function optStyle(value: ContentMode, comingSoon?: boolean) {
   }
 }
 
+const noneOptStyle = computed(() => {
+  const isActive = chatStore.selectedMode === undefined
+  return {
+    padding: '8px 10px',
+    borderRadius: 'var(--r-sm)',
+    background: isActive ? 'var(--brand-tint)' : 'transparent',
+    color: 'var(--fg)',
+    fontSize: '13px',
+    fontWeight: 500,
+    cursor: 'pointer',
+  }
+})
+
 function hover(e: MouseEvent, value: ContentMode, enter: boolean, comingSoon?: boolean) {
   if (comingSoon) return
   if (value === chatStore.selectedMode) return
+  ;(e.currentTarget as HTMLElement).style.background = enter ? 'var(--bg-2)' : 'transparent'
+}
+
+function hoverNone(e: MouseEvent, enter: boolean) {
+  if (chatStore.selectedMode === undefined) return // active state already styled
   ;(e.currentTarget as HTMLElement).style.background = enter ? 'var(--bg-2)' : 'transparent'
 }
 

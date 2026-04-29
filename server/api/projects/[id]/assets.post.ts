@@ -14,7 +14,7 @@ import {
   randomId,
   getAssetCategory,
 } from '~/server/utils/storage'
-import { extractAndPersist, isExtractable } from '~/server/utils/asset-content'
+import { extractAndPersist } from '~/server/utils/asset-content'
 
 export default defineEventHandler(async (event) => {
   const projectId = getRouterParam(event, 'id')
@@ -84,23 +84,25 @@ export default defineEventHandler(async (event) => {
       continue
     }
 
-    // Kick off content extraction for parseable docs (PDF/DOCX/TXT/MD).
-    // Run inline so the AI prompt can use the text on the very next message.
-    // Errors are stored as `error` status — they never break the upload.
-    // The project_id threads through to embedAssetChunks so the chunks
-    // can be inserted in the same flow.
-    if (isExtractable(ext)) {
-      try {
-        await extractAndPersist(event, {
-          id: data.id,
-          storage_path: storagePath,
-          extension: ext,
-          name: part.filename,
-          project_id: projectId,
-        })
-      } catch (e: any) {
-        warnings.push(`Content extraction for "${part.filename}" failed: ${e?.message ?? 'unknown'}`)
-      }
+    // Run extraction unconditionally. extractAndPersist() already handles
+    // every supported case: parseable docs (PDF/DOCX/TXT/MD/CSV/TSV) get
+    // their text written to extracted_text with status='done', while
+    // images/videos/pptx land on status='skipped' via extractAssetText()'s
+    // early return at line 51. Without this call, non-extractable rows
+    // would keep the DB-default extraction_status='pending' forever, which
+    // makes the Knowledge tab's poller spin "Extracting text…" with no
+    // terminal state. Errors here are stored on the row as status='error'
+    // and never break the upload.
+    try {
+      await extractAndPersist(event, {
+        id: data.id,
+        storage_path: storagePath,
+        extension: ext,
+        name: part.filename,
+        project_id: projectId,
+      })
+    } catch (e: any) {
+      warnings.push(`Content extraction for "${part.filename}" failed: ${e?.message ?? 'unknown'}`)
     }
 
     inserted.push({ ...data, preview_url })

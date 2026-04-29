@@ -6,7 +6,7 @@
  * Body:
  *   workspace_id   string  (required)
  *   name           string  (required)
- *   category       string  — 'voice' | 'format' | 'trend' | 'workflow' (required)
+ *   category       string  — 'marketing' | 'creator' (required)
  *   description    string  (required)
  *   instructions   string  (optional)
  *   examples       string[] (optional)
@@ -16,7 +16,7 @@
 import { requireUser, serviceSupabase } from '~/server/utils/supabase'
 import { assertWorkspaceEditor } from '~/server/utils/authz'
 
-const VALID_CATEGORIES = ['voice', 'format', 'trend', 'workflow'] as const
+const VALID_CATEGORIES = ['marketing', 'creator'] as const
 
 export default defineEventHandler(async (event) => {
   const user = requireUser(event)

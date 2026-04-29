@@ -57,6 +57,9 @@ if (!['production', 'preview'].includes(TARGET)) {
 const OVERRIDES = {
   NUXT_PUBLIC_APP_URL: 'https://floo-ai.vercel.app',
 
+  // Force OpenAI as the AI provider in all production deployments.
+  AI_PROVIDER: 'openai',
+
   // Fresh prod session secret. DO NOT reuse the local one — if the
   // local .env leaks, prod sessions stay safe.
   SESSION_SECRET: '3271c9627f2d91fc23a955a6ff08a10fc4a8de1d6724c046ec391fd888e587d0',
@@ -152,8 +155,11 @@ const GROUPS = [
   ['GOOGLE OAUTH', ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET']],
   ['SESSION', ['SESSION_SECRET']],
   ['AI', [
+    'AI_PROVIDER',
+    'EMBEDDINGS_MODEL',
     'GLM_API_KEY', 'GLM_API_BASE_URL', 'GLM_MODEL',
-    'OPENAI_API_KEY', 'OPENAI_MODEL', 'OPENAI_API_BASE_URL',
+    'GLM_VISION_MODEL', 'GLM_IMAGE_MODEL', 'GLM_ENABLE_WEB_SEARCH',
+    'OPENAI_API_KEY', 'OPENAI_MODEL', 'OPENAI_API_BASE_URL', 'OPENAI_IMAGE_MODEL',
     'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL',
   ]],
   ['SUPABASE STORAGE (S3)', [

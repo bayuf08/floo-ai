@@ -124,7 +124,12 @@ export interface BuildPromptArgs {
     platform_bio?: string | null
     platform_followers?: number | null
   } | null
-  skills: { name: string; instructions?: string | null }[]
+  skills: {
+    name: string
+    description?: string | null
+    instructions?: string | null
+    examples?: string[] | null
+  }[]
   brandAssets: BrandAssetForPrompt[]
   /**
    * Top-K vector retrieval hits from match_project_chunks. When provided
@@ -208,16 +213,18 @@ export function buildChatPrompt(args: BuildPromptArgs): ChatTurn[] {
     ? `\n\n## Project context\n${ctxLines.join('\n\n')}`
     : ''
 
-  // Skills — full version (with instructions) and a fallback minimal version.
+  // Skills — render each active skill as its own subsection so long-form
+  // SKILL.md-style instructions stay scannable to the model. Falls back to
+  // a name-only list when the prompt is over budget.
   const skillsPreamble =
-    'The following skills are active for this project. Apply their instructions in addition to the base rules above — they sharpen, not replace, the brand voice.'
+    'The following skills are active for this project. Apply each skill\'s instructions and examples in addition to the base rules above — they sharpen, not replace, the brand voice. When two skills conflict, prefer the one whose category is more specific to the current task.'
   const fullSkillsBlock = args.skills.length
-    ? `\n\n## Active skills\n${skillsPreamble}\n${args.skills
-        .map((s) => `- **${s.name}**${s.instructions ? `: ${s.instructions}` : ''}`)
-        .join('\n')}`
+    ? `\n\n## Active skills\n${skillsPreamble}\n\n${args.skills
+        .map((s) => renderSkillSection(s))
+        .join('\n\n')}`
     : ''
   const minimalSkillsBlock = args.skills.length
-    ? `\n\n## Active skills\n${skillsPreamble}\n${args.skills.map((s) => `- **${s.name}**`).join('\n')}${TRUNCATION_MARKER}`
+    ? `\n\n## Active skills\n${skillsPreamble}\n${args.skills.map((s) => `- **${s.name}**${s.description ? ` — ${s.description}` : ''}`).join('\n')}${TRUNCATION_MARKER}`
     : ''
 
   const exemplarsBlock = args.savedOutputs?.length
@@ -300,6 +307,34 @@ export function buildChatPrompt(args: BuildPromptArgs): ChatTurn[] {
   }
 
   return turns
+}
+
+/**
+ * Render one active skill as a self-contained subsection.
+ *
+ * Layout (matches Anthropic SKILL.md convention):
+ *   ### {Name}
+ *   _{description}_                ← only if present
+ *
+ *   {instructions markdown}        ← only if present, verbatim
+ *
+ *   **Examples:**                  ← only if examples are present
+ *   - example 1
+ *   - example 2
+ *
+ * Skills with ONLY a name + description (the legacy 24 dummy rows) collapse
+ * to a 2-line subsection — still scannable, no empty headings.
+ */
+function renderSkillSection(s: BuildPromptArgs['skills'][number]): string {
+  const parts: string[] = [`### ${s.name}`]
+  if (s.description) parts.push(`_${s.description}_`)
+  if (s.instructions?.trim()) parts.push(s.instructions.trim())
+  const examples = (s.examples ?? []).filter((e) => e && e.trim().length > 0)
+  if (examples.length) {
+    const lines = examples.map((e) => `- ${e.replace(/\s+/g, ' ').trim()}`)
+    parts.push(`**Examples:**\n${lines.join('\n')}`)
+  }
+  return parts.join('\n\n')
 }
 
 /**

@@ -6,7 +6,7 @@
  */
 import { requireUser, serviceSupabase } from '~/server/utils/supabase'
 import { assertProjectEditor } from '~/server/utils/authz'
-import { extractAndPersist, isExtractable } from '~/server/utils/asset-content'
+import { extractAndPersist } from '~/server/utils/asset-content'
 
 export default defineEventHandler(async (event) => {
   const projectId = getRouterParam(event, 'id')
@@ -29,10 +29,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Asset not found' })
   }
 
-  if (!isExtractable(asset.extension)) {
-    return { status: 'skipped', reason: `${asset.extension} is not a supported text format` }
-  }
-
+  // Always go through extractAndPersist — it routes parseable docs through
+  // the parser branch and non-extractable formats (images/videos/pptx)
+  // through the early-return path that writes extraction_status='skipped'.
+  // The previous early-return here returned 'skipped' to the caller WITHOUT
+  // persisting, which left rows that landed in 'pending' (e.g. images
+  // uploaded before the upload-side gate was removed) permanently stuck
+  // even after a manual retry.
   const result = await extractAndPersist(event, asset)
   return result
 })

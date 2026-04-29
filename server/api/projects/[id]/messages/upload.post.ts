@@ -132,7 +132,7 @@ export default defineEventHandler(async (event) => {
         .maybeSingle(),
       supabase
         .from('project_skills')
-        .select('active, skill:skills(name, instructions)')
+        .select('active, skill:skills(name, description, instructions, examples)')
         .eq('project_id', projectId)
         .eq('active', true),
       supabase
@@ -176,7 +176,12 @@ export default defineEventHandler(async (event) => {
     skills: (skills ?? [])
       .map((s: any) => s.skill)
       .filter(Boolean)
-      .map((s: any) => ({ name: s.name, instructions: s.instructions })),
+      .map((s: any) => ({
+        name: s.name,
+        description: s.description,
+        instructions: s.instructions,
+        examples: s.examples,
+      })),
     brandAssets: (assets ?? []).map((a: any) => ({
       name: a.name,
       description: a.description,

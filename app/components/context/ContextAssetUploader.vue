@@ -45,7 +45,10 @@
         </template>
       </p>
       <p :style="{ fontSize: '11px', color: 'var(--fg-3)' }">
-        PDF, DOCX, PPTX, XLSX, CSV, JPG, PNG, MP4, and more
+        PDF, JPG, PNG
+      </p>
+      <p :style="{ fontSize: '10.5px', color: 'var(--fg-3)', marginTop: '2px', fontStyle: 'italic' }">
+        Videos, PPTX, XLSX, CSV — coming soon
       </p>
 
       <!-- Recently-added flash -->
@@ -72,7 +75,7 @@
         ref="fileInput"
         type="file"
         multiple
-        accept="*"
+        accept="image/*,application/pdf,.pdf"
         class="hidden"
         @change="onPickerChange"
       />
@@ -123,6 +126,19 @@ const recentlyAdded = ref(0)
 const warnings = ref<string[]>([])
 
 const SIZE_LIMIT = 50 * 1024 * 1024 // 50 MB
+
+/**
+ * Allow-list for knowledge uploads. Knowledge currently supports images
+ * (visual references) and PDFs (text-extractable docs) only — other types
+ * are silently rejected with a warning so the user understands why a
+ * dropped file didn't show up.
+ */
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'pdf']
+
+function isAllowedFile(filename: string): boolean {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+  return ALLOWED_EXTENSIONS.includes(ext)
+}
 
 const zoneStyle = computed(() => ({
   padding: '20px 16px',
@@ -175,6 +191,21 @@ async function processFiles(files: File[]) {
   warnings.value = []
   let added = 0
   const isPersistedProject = !props.projectId.startsWith('proj-pending-')
+
+  // Filter out unsupported types up front (drag-drop bypasses the picker's
+  // `accept` attribute). Knowledge uploads only accept images and PDFs.
+  const allowedFiles: File[] = []
+  for (const f of files) {
+    if (isAllowedFile(f.name)) {
+      allowedFiles.push(f)
+    } else {
+      warnings.value.push(
+        `"${f.name}" isn't a supported type — only images and PDFs can be added to knowledge.`
+      )
+    }
+  }
+  if (allowedFiles.length === 0) return
+  files = allowedFiles
 
   // Optimistic local insert (so the user sees the asset immediately) + parallel
   // backend upload when not in mock mode and the project actually exists in the DB.

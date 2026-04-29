@@ -87,10 +87,8 @@ export const useSkillsStore = defineStore('skills', () => {
 
   const skillsByCategory = computed(() => {
     const groups: Record<SkillCategory, SkillDefinition[]> = {
-      voice: [],
-      format: [],
-      trend: [],
-      workflow: [],
+      marketing: [],
+      creator: [],
     }
     for (const s of skills.value) groups[s.category].push(s)
     return groups

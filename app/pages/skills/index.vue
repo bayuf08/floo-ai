@@ -110,10 +110,8 @@ const activeOnCurrentProject = computed(() => {
 })
 
 const categoryCounts = computed<Record<SkillCategory, number>>(() => ({
-  voice: skillsStore.skillsByCategory.voice.length,
-  format: skillsStore.skillsByCategory.format.length,
-  trend: skillsStore.skillsByCategory.trend.length,
-  workflow: skillsStore.skillsByCategory.workflow.length,
+  marketing: skillsStore.skillsByCategory.marketing.length,
+  creator: skillsStore.skillsByCategory.creator.length,
 }))
 
 async function toggleSkill(skill: SkillDefinition) {
