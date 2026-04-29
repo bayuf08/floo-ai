@@ -149,7 +149,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function sendMessage(content: string, projectId: string) {
+  async function sendMessage(
+    content: string,
+    projectId: string,
+    referencedAssetIds?: string[],
+  ) {
     // Optimistic insert — let the user see their message immediately.
     const tempUserId = `msg-pending-${Date.now()}`
     messages.value.push({
@@ -266,7 +270,7 @@ export const useChatStore = defineStore('chat', () => {
 
     // Backend path — try SSE streaming first, fall back to non-streaming POST.
     try {
-      const ok = await streamSendMessage(content, projectId, tempUserId)
+      const ok = await streamSendMessage(content, projectId, tempUserId, referencedAssetIds)
       if (ok) return
       // Fall through to non-streaming if streaming wasn't supported.
       const result = await $fetch<{ user_message: any; assistant_message: any }>(
@@ -274,7 +278,13 @@ export const useChatStore = defineStore('chat', () => {
         {
           method: 'POST',
           credentials: 'include',
-          body: { content, mode: selectedMode.value },
+          body: {
+            content,
+            mode: selectedMode.value,
+            ...(referencedAssetIds && referencedAssetIds.length > 0
+              ? { referenced_asset_ids: referencedAssetIds }
+              : {}),
+          },
         }
       )
       // Replace optimistic placeholder with the real persisted user message
@@ -326,15 +336,20 @@ export const useChatStore = defineStore('chat', () => {
   async function streamSendMessage(
     content: string,
     projectId: string,
-    tempUserId: string
+    tempUserId: string,
+    referencedAssetIds?: string[],
   ): Promise<boolean> {
     let response: Response
     try {
+      const body: Record<string, unknown> = { content, mode: selectedMode.value }
+      if (referencedAssetIds && referencedAssetIds.length > 0) {
+        body.referenced_asset_ids = referencedAssetIds
+      }
       response = await fetch(`/api/projects/${projectId}/messages/stream`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-        body: JSON.stringify({ content, mode: selectedMode.value }),
+        body: JSON.stringify(body),
       })
     } catch (err: any) {
       console.warn('[chatStore] streamSendMessage fetch failed', err)
