@@ -25,7 +25,9 @@ export function detectMentionTrigger(text: string, caret: number): MentionTrigge
 }
 
 export interface MentionReplacement {
+  /** The full updated textarea text after insertion. */
   text: string
+  /** Index at which to place the caret in `text` after insertion. */
   caret: number
 }
 
@@ -39,8 +41,12 @@ export function replaceMentionTrigger(
   const after = text.slice(caret)
   const nextCharIsWhitespace = after.length > 0 && /\s/.test(after[0]!)
   // Add a trailing space when the suffix doesn't already start with whitespace.
-  // If it does, omit the trailing space and let the caret skip past the
-  // existing whitespace, so we don't end up with double-spacing.
+  // If it does, omit the trailing space and step the caret past the existing
+  // whitespace character so we don't end up with double-spacing. Skipping
+  // exactly one character (rather than a greedy run) is deliberate: browsers
+  // normalize textarea line endings to '\n', so we never face a multi-byte
+  // newline like '\r\n'; preserving any extra spaces the user typed is the
+  // expected behavior.
   const insertion = nextCharIsWhitespace ? `@${filename}` : `@${filename} `
   const newText = before + insertion + after
   const newCaret = nextCharIsWhitespace

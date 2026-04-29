@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { detectMentionTrigger } from './mention-parsing'
+import { detectMentionTrigger, replaceMentionTrigger } from './mention-parsing'
 
 describe('detectMentionTrigger', () => {
   test('empty text → null', () => {
@@ -44,8 +44,6 @@ describe('detectMentionTrigger', () => {
     expect(detectMentionTrigger('@LK', 0)).toBeNull()
   })
 })
-
-import { replaceMentionTrigger } from './mention-parsing'
 
 describe('replaceMentionTrigger', () => {
   test('replaces @LK at end of text with @filename + trailing space', () => {
